@@ -5,12 +5,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // BASE is set by the GitHub Pages workflow (the site lives under /<repo>/). Locally it is '/'.
 // Which phrases have a recorded clip. The single-file hosted build ships no clips, so it lists none.
-const clips = (mode: string) => mode === 'artifact' || !existsSync('public/audio') ? []
-  : readdirSync('public/audio').filter(f => f.endsWith('.m4a')).map(f => f.slice(0, -4))
+const listed = (mode: string, dir: string, ext: string) => mode === 'artifact' || !existsSync(dir) ? []
+  : readdirSync(dir).filter(f => f.endsWith(ext)).map(f => f.slice(0, -ext.length))
 
 export default defineConfig(({ mode }) => ({
   base: process.env.BASE ?? '/',
-  define: { __CLIPS__: JSON.stringify(clips(mode)) },
+  define: {
+    __CLIPS__: JSON.stringify(listed(mode, 'public/audio', '.m4a')),
+    __VOICE__: JSON.stringify(listed(mode, 'public/voice', '.mp3')),
+  },
   plugins: [
     react(),
     mode !== 'artifact' && VitePWA({
@@ -20,6 +23,8 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ['**/*.{js,css,html,svg,jpg,m4a}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
+          // Recordings are cached the first time each plays, so installing the app stays light.
+          { urlPattern: /\/voice\/[0-9a-f]{8}\.mp3$/, handler: 'CacheFirst', options: { cacheName: 'voice', expiration: { maxEntries: 1000 } } },
           { urlPattern: /\.woff2$/, handler: 'CacheFirst', options: { cacheName: 'fonts', expiration: { maxEntries: 200 } } },
         ],
       },

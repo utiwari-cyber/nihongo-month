@@ -45,6 +45,11 @@ Clearing the browser's website data erases your progress on that device.
 
 ## Audio
 
+Every phrase, kana character and practice word has a recording in `public/voice/`, made with Open JTalk (a free, offline Japanese voice), so audio works on any phone without a Japanese text-to-speech voice installed. After adding content, run `scripts/gen-voice.py` (instructions at the top of the file) to record the new text. Phrases with a human-voice clip in `public/audio/` use that instead.
+
+## Older audio notes
+
+
 Phrases are read by your device's Japanese voice. For recorded clips, run `npm run audio` on a Mac. It saves any missing ones to `public/audio`.
 
 ## Editing content
