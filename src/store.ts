@@ -47,30 +47,46 @@ export function reviewed(box: number, gotIt: boolean, today = now()) {
   return { box: next, due: dateKey(new Date(today.getTime() + days * DAY)) }
 }
 
+// Ids with a recorded clip in public/audio, listed at build time (see vite.config.ts).
+const CLIPS = new Set<string>(__CLIPS__)
+
+// Keep a reference to the utterance: some browsers drop it mid-sentence if it is garbage-collected.
+let utterance: SpeechSynthesisUtterance | null = null
+let jaVoice: SpeechSynthesisVoice | undefined
+const findVoice = () => { jaVoice = window.speechSynthesis?.getVoices().find(v => v.lang.replace('_', '-').toLowerCase().startsWith('ja')) }
+try {
+  findVoice()
+  window.speechSynthesis?.addEventListener('voiceschanged', findVoice)
+} catch { /* no speech support */ }
+
 // The device's own Japanese voice, used for anything without a recorded clip.
+// Must be called directly from a tap: phones block speech that starts later.
 export function speak(text: string) {
   try {
     const synth = window.speechSynthesis
     if (!synth) return
-    synth.cancel()
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'ja-JP'
-    u.rate = 0.85
-    const voice = synth.getVoices().find(v => v.lang.replace('_', '-').startsWith('ja'))
-    if (voice) u.voice = voice
-    synth.speak(u)
+    // Cancelling an idle synth right before speaking silences Safari, so only cancel when busy.
+    if (synth.speaking || synth.pending) synth.cancel()
+    utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'ja-JP'
+    utterance.rate = 0.85
+    if (jaVoice) utterance.voice = jaVoice
+    synth.resume()
+    synth.speak(utterance)
   } catch { /* sound is a bonus */ }
 }
 
 let current: HTMLAudioElement | null = null
-// Plays public/audio/<id>.m4a if it exists, otherwise speaks `text`.
+// Plays the recorded clip if there is one, otherwise speaks `text` straight away, inside the same tap.
 export function play(id: string, text?: string) {
   current?.pause()
-  window.speechSynthesis?.cancel()
+  current = null
+  if (!CLIPS.has(id)) {
+    if (text) speak(text)
+    return
+  }
+  if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel()
   const clip = new Audio(`${import.meta.env.BASE_URL}audio/${id}.m4a`)
   current = clip
-  let fell = false
-  const fallback = () => { if (!fell && text) { fell = true; speak(text) } }
-  clip.addEventListener('error', fallback)
-  clip.play().catch(fallback)
+  clip.play().catch(() => { if (text) speak(text) })
 }

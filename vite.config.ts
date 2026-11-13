@@ -1,10 +1,16 @@
+import { existsSync, readdirSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // BASE is set by the GitHub Pages workflow (the site lives under /<repo>/). Locally it is '/'.
+// Which phrases have a recorded clip. The single-file hosted build ships no clips, so it lists none.
+const clips = (mode: string) => mode === 'artifact' || !existsSync('public/audio') ? []
+  : readdirSync('public/audio').filter(f => f.endsWith('.m4a')).map(f => f.slice(0, -4))
+
 export default defineConfig(({ mode }) => ({
   base: process.env.BASE ?? '/',
+  define: { __CLIPS__: JSON.stringify(clips(mode)) },
   plugins: [
     react(),
     mode !== 'artifact' && VitePWA({
